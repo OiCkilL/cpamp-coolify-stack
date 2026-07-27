@@ -1,0 +1,99 @@
+services:
+  cli-proxy-api:
+    image: eceasy/cli-proxy-api:latest
+    pull_policy: always
+    restart: unless-stopped
+    expose:
+      - "8317"
+    environment:
+      CPA_PORT: "8317"
+      CPA_API_KEY: ${CPA_API_KEY}
+      CPA_MANAGEMENT_KEY: ${CPA_MANAGEMENT_KEY}
+      CPA_REQUEST_RETRY: ${CPA_REQUEST_RETRY:-1}
+      CPA_DEBUG: ${CPA_DEBUG:-false}
+    volumes:
+      - cpa-data:/data
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        : "$${CPA_API_KEY:?CPA_API_KEY is required}"
+        : "$${CPA_MANAGEMENT_KEY:?CPA_MANAGEMENT_KEY is required}"
+        state_dir=/data
+        config_path="$${state_dir}/config.yaml"
+        mkdir -p "$${state_dir}/auth" "$${state_dir}/logs" "$${state_dir}/plugins"
+        if [ ! -s "$${config_path}" ]; then
+          umask 077
+          cat > "$${config_path}" <<EOF_CONFIG
+        host: "0.0.0.0"
+        port: $${CPA_PORT}
+        api-keys:
+          - "$${CPA_API_KEY}"
+        auth-dir: "/data/auth"
+        routing:
+          strategy: "round-robin"
+        request-retry: $${CPA_REQUEST_RETRY}
+        max-retry-interval: 30
+        logging-to-file: true
+        logs-max-total-size-mb: 100
+        usage-statistics-enabled: true
+        redis-usage-queue-retention-seconds: 60
+        debug: $${CPA_DEBUG}
+        ws-auth: true
+        remote-management:
+          allow-remote: true
+          secret-key: "$${CPA_MANAGEMENT_KEY}"
+          disable-control-panel: false
+          disable-auto-update-panel: true
+          panel-github-repository: "https://github.com/seakee/CPA-Manager-Plus"
+        plugins:
+          enabled: true
+          dir: "/data/plugins"
+        EOF_CONFIG
+        fi
+        rm -f /CLIProxyAPI/config.yaml
+        ln -sf "$${config_path}" /CLIProxyAPI/config.yaml
+        # keep auth-dir writable under /data
+        exec /CLIProxyAPI/CLIProxyAPI
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO- http://127.0.0.1:8317/healthz 2>/dev/null | grep -q ok || wget -qO- http://127.0.0.1:8317/ 2>/dev/null | head -c1 | grep -q .
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 25s
+
+  cpa-manager-plus:
+    image: seakee/cpa-manager-plus:latest
+    pull_policy: always
+    restart: unless-stopped
+    expose:
+      - "18317"
+    environment:
+      HTTP_ADDR: "0.0.0.0:18317"
+      USAGE_DB_PATH: "/data/usage.sqlite"
+      CPA_MANAGER_DATA_KEY_PATH: "/data/data.key"
+      CPA_MANAGER_ADMIN_KEY: ${CPA_MANAGER_ADMIN_KEY}
+      CPA_UPSTREAM_URL: "http://cli-proxy-api:8317"
+      CPA_MANAGEMENT_KEY: ${CPA_MANAGEMENT_KEY}
+      USAGE_COLLECTOR_MODE: "auto"
+      USAGE_RESP_QUEUE: "usage"
+      USAGE_RESP_POP_SIDE: "right"
+      USAGE_BATCH_SIZE: "100"
+      USAGE_POLL_INTERVAL_MS: "500"
+      USAGE_QUERY_LIMIT: "50000"
+      USAGE_CORS_ORIGINS: "*"
+    volumes:
+      - cpa-manager-plus-data:/data
+    depends_on:
+      - cli-proxy-api
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:18317/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  cpa-data:
+  cpa-manager-plus-data:
