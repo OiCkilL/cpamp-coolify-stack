@@ -3,8 +3,8 @@ services:
     image: eceasy/cli-proxy-api:latest
     pull_policy: always
     restart: unless-stopped
-    ports:
-      - "8317:8317"
+    expose:
+      - "8317"
     environment:
       CPA_PORT: "8317"
       CPA_API_KEY: ${CPA_API_KEY}
@@ -13,17 +13,9 @@ services:
       CPA_DEBUG: ${CPA_DEBUG:-false}
     volumes:
       - cpa-data:/data
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.cpa-api.rule=Host(`cpa.cx.rx0.host`)
-      - traefik.http.routers.cpa-api.entrypoints=https
-      - traefik.http.routers.cpa-api.tls=true
-      - traefik.http.routers.cpa-api.tls.certresolver=letsencrypt
-      - traefik.http.routers.cpa-api-http.rule=Host(`cpa.cx.rx0.host`)
-      - traefik.http.routers.cpa-api-http.entrypoints=http
-      - traefik.http.routers.cpa-api-http.middlewares=redirect-to-https
-      - traefik.http.services.cpa-api.loadbalancer.server.port=8317
-      - traefik.docker.network=coolify
+    networks:
+      - coolify
+      - default
     entrypoint:
       - /bin/sh
       - -ec
@@ -76,8 +68,8 @@ services:
     image: seakee/cpa-manager-plus:latest
     pull_policy: always
     restart: unless-stopped
-    ports:
-      - "18317:18317"
+    expose:
+      - "18317"
     environment:
       HTTP_ADDR: "0.0.0.0:18317"
       USAGE_DB_PATH: "/data/usage.sqlite"
@@ -96,17 +88,9 @@ services:
       - cpa-manager-plus-data:/data
     depends_on:
       - cli-proxy-api
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.cpamp.rule=Host(`cpa.rx0.host`)
-      - traefik.http.routers.cpamp.entrypoints=https
-      - traefik.http.routers.cpamp.tls=true
-      - traefik.http.routers.cpamp.tls.certresolver=letsencrypt
-      - traefik.http.routers.cpamp-http.rule=Host(`cpa.rx0.host`)
-      - traefik.http.routers.cpamp-http.entrypoints=http
-      - traefik.http.routers.cpamp-http.middlewares=redirect-to-https
-      - traefik.http.services.cpamp.loadbalancer.server.port=18317
-      - traefik.docker.network=coolify
+    networks:
+      - coolify
+      - default
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:18317/health"]
       interval: 10s
@@ -116,3 +100,8 @@ services:
 volumes:
   cpa-data:
   cpa-manager-plus-data:
+
+networks:
+  coolify:
+    external: true
+  default:
