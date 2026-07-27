@@ -3,8 +3,8 @@ services:
     image: eceasy/cli-proxy-api:latest
     pull_policy: always
     restart: unless-stopped
-    expose:
-      - "8317"
+    ports:
+      - "8317:8317"
     environment:
       CPA_PORT: "8317"
       CPA_API_KEY: ${CPA_API_KEY}
@@ -68,8 +68,8 @@ services:
     image: seakee/cpa-manager-plus:latest
     pull_policy: always
     restart: unless-stopped
-    expose:
-      - "18317"
+    ports:
+      - "18317:18317"
     environment:
       HTTP_ADDR: "0.0.0.0:18317"
       USAGE_DB_PATH: "/data/usage.sqlite"
