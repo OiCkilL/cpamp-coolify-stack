@@ -57,12 +57,13 @@ services:
         rm -f /CLIProxyAPI/config.yaml
         ln -sf "$${config_path}" /CLIProxyAPI/config.yaml
         exec /CLIProxyAPI/CLIProxyAPI
+    # Coolify/Traefik: avoid unhealthy backend removal if image lacks wget
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8317/healthz >/dev/null 2>&1 || exit 1"]
-      interval: 15s
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 30s
       timeout: 5s
-      retries: 10
-      start_period: 30s
+      retries: 3
+      start_period: 20s
 
   cpa-manager-plus:
     image: seakee/cpa-manager-plus:latest
