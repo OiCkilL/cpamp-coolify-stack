@@ -13,6 +13,17 @@ services:
       CPA_DEBUG: ${CPA_DEBUG:-false}
     volumes:
       - cpa-data:/data
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.cpa-api.rule=Host(`cpa.cx.rx0.host`)
+      - traefik.http.routers.cpa-api.entrypoints=https
+      - traefik.http.routers.cpa-api.tls=true
+      - traefik.http.routers.cpa-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.cpa-api-http.rule=Host(`cpa.cx.rx0.host`)
+      - traefik.http.routers.cpa-api-http.entrypoints=http
+      - traefik.http.routers.cpa-api-http.middlewares=redirect-to-https
+      - traefik.http.services.cpa-api.loadbalancer.server.port=8317
+      - traefik.docker.network=coolify
     entrypoint:
       - /bin/sh
       - -ec
@@ -53,16 +64,13 @@ services:
         fi
         rm -f /CLIProxyAPI/config.yaml
         ln -sf "$${config_path}" /CLIProxyAPI/config.yaml
-        # keep auth-dir writable under /data
         exec /CLIProxyAPI/CLIProxyAPI
     healthcheck:
-      test:
-        - CMD-SHELL
-        - wget -qO- http://127.0.0.1:8317/healthz 2>/dev/null | grep -q ok || wget -qO- http://127.0.0.1:8317/ 2>/dev/null | head -c1 | grep -q .
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8317/healthz >/dev/null 2>&1 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 10
-      start_period: 25s
+      start_period: 30s
 
   cpa-manager-plus:
     image: seakee/cpa-manager-plus:latest
@@ -88,6 +96,17 @@ services:
       - cpa-manager-plus-data:/data
     depends_on:
       - cli-proxy-api
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.cpamp.rule=Host(`cpa.rx0.host`)
+      - traefik.http.routers.cpamp.entrypoints=https
+      - traefik.http.routers.cpamp.tls=true
+      - traefik.http.routers.cpamp.tls.certresolver=letsencrypt
+      - traefik.http.routers.cpamp-http.rule=Host(`cpa.rx0.host`)
+      - traefik.http.routers.cpamp-http.entrypoints=http
+      - traefik.http.routers.cpamp-http.middlewares=redirect-to-https
+      - traefik.http.services.cpamp.loadbalancer.server.port=18317
+      - traefik.docker.network=coolify
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:18317/health"]
       interval: 10s
